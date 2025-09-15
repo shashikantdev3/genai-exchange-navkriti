@@ -1,0 +1,28 @@
+{
+  "name": "healthcare-ai-testcase-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered platform frontend for generating compliant healthcare test cases",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "react-scripts": "^5.0.1"
+  },
+  "keywords": [
+    "react",
+    "healthcare",
+    "ai",
+    "test-case",
+    "frontend"
+  ],
+  "author": "",
+  "license": "MIT"
+}
