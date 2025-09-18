@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Button, Typography, LinearProgress, Alert } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase';
+import { getAuth, signInAnonymously } from "firebase/auth";
+
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -12,6 +16,31 @@ export default function FileUpload({ onUpload }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [authUser, setAuthUser] = useState(null);
+  const auth = getAuth();
+  
+  useEffect(() => {
+  // Listen to auth state changes
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // User is signed in
+      setAuthUser(user);
+    } else {
+      // No user signed in, sign in anonymously
+      signInAnonymously(auth)
+        .then(({ user }) => {
+          setAuthUser(user);
+        })
+        .catch((error) => {
+          console.error("Anonymous sign-in failed", error);
+        });
+    }
+  });
+
+  // Cleanup subscription on unmount
+  return () => unsubscribe();
+  }, [auth]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -29,21 +58,45 @@ export default function FileUpload({ onUpload }) {
   };
 
   const handleUpload = () => {
+    if (!authUser) {
+      console.log("User not signed in yet.");
+      return;
+    }
     if (!selectedFile) return;
 
     setUploading(true);
     setError('');
+    setProgress(0);
 
-    // Simulate upload delay with dummy data for prototype
-    setTimeout(() => {
-      const dummyTestCases = [
-        { id: 'TC-001', preconditions: 'User registered', steps: 'Login', expectedResults: 'Success' },
-        { id: 'TC-002', preconditions: 'User logged in', steps: 'Upload PDF', expectedResults: 'Processed' }
-      ];
-      onUpload(dummyTestCases);
-      setSelectedFile(null);
-      setUploading(false);
-    }, 1500);
+    const fileRef = ref(storage, `uploads/${Date.now()}-${selectedFile.name}`);
+    const uploadTask = uploadBytesResumable(fileRef, selectedFile);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setProgress(percent);
+      },
+      (err) => {
+        console.error(err);
+        setError('Upload failed. Please try again.');
+        setUploading(false);
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        const uploadedData = {
+          name: selectedFile.name,
+          size: selectedFile.size,
+          type: selectedFile.type,
+          url: downloadURL,
+        };
+
+        onUpload(uploadedData); // <-- Pass to parent
+        setSelectedFile(null);
+        setUploading(false);
+        setProgress(0);
+      }
+    );
   };
 
   return (
@@ -54,16 +107,35 @@ export default function FileUpload({ onUpload }) {
         component="label"
         startIcon={<UploadFileIcon />}
         sx={{ mr: 2 }}
+        disabled={uploading}
       >
         Choose File
         <input hidden type="file" onChange={handleFileChange} />
       </Button>
-      {selectedFile && <Typography sx={{ display: 'inline-block', mr: 2 }}>{selectedFile.name}</Typography>}
-      <Button variant="outlined" onClick={handleUpload} disabled={!selectedFile || uploading}>
+      {selectedFile && (
+        <Typography sx={{ display: 'inline-block', mr: 2 }}>
+          {selectedFile.name}
+        </Typography>
+      )}
+      <Button
+        variant="outlined"
+        onClick={handleUpload}
+        disabled={!selectedFile || uploading}
+      >
         {uploading ? 'Uploading...' : 'Upload'}
       </Button>
-      {uploading && <LinearProgress sx={{ mt: 2 }} />}
-      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      {uploading && (
+        <LinearProgress
+          variant="determinate"
+          value={progress}
+          sx={{ mt: 2 }}
+        />
+      )}
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
     </Box>
   );
 }
