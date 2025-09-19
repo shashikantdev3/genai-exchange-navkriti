@@ -42,7 +42,7 @@ The platform delivers:
 
 
 ## 💥 Frontend Demo  
-![Architecture](./assets/frontend_demo.png)
+![Frontend](./assets/frontend_demo.PNG)
 
 ---
 
@@ -106,5 +106,3 @@ The platform enables a **seamless test case generation lifecycle**:
 - Exportable for compliance & audits.  
 
 ---
-
-🚀 With this flow, **Navkriti GenAI Test Case Generator** ensures that healthcare QA teams can move from **requirement upload → AI-driven test generation → compliance-ready traceability matrix** in minutes.  
