@@ -3,7 +3,7 @@ import { Box, Button, Typography, LinearProgress, Alert } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 
 const ALLOWED_TYPES = [
