@@ -40,6 +40,10 @@ The platform delivers:
 ## 🏗 Architecture Diagram  
 ![Architecture](./assets/Archicture_Diagram.png)
 
+
+## 💥 Frontend Demo  
+![Architecture](./assets/frontend_demo.png)
+
 ---
 
 ## ⚡ Tech Stack  
@@ -48,6 +52,59 @@ The platform delivers:
 - AI / ML: Cloud Vision API, Vertex AI LLM  
 - Database: Firestore + BigQuery  
 - Storage: Cloud Storage  
-- Compliance: GDPR, FDA/ISO, ISO audit logs
+- Compliance: GDPR, FDA/ISO, ISO audit logs  
 
 ---
+
+## ✨ Features & Flow  
+
+The platform enables a **seamless test case generation lifecycle**:  
+
+### 1. Upload & Generate Flow  
+- Upload requirements in **PDF, Word, or Text** format.  
+- AI validates and parses the file.  
+- Generate Test Cases button triggers **Vertex AI (Gemini)** to produce structured test cases.  
+- Option to **Regenerate Test Cases** with additional clarifications.  
+
+### 2. Test Case Display  
+- View test cases in a structured table with:  
+  - Test Case ID  
+  - Title  
+  - Requirement ID (linked to requirement)  
+  - Test Steps  
+  - Expected Result  
+  - Priority  
+  - Compliance Reference (FDA 21 CFR Part 11, ISO 13485, IEC 62304, ISO 27001)  
+- Includes **search, filter, and compliance badges**.  
+
+### 3. Traceability Matrix  
+- Matrix linking **requirements ↔ test cases** with compliance mapping.  
+- Status tracking (Pass / Fail / Not Tested).  
+- Export options: **CSV / XLSX / PDF**.  
+
+### 4. Regeneration Flow  
+- AI-driven **clarification modal** asks about:  
+  - Edge cases  
+  - Negative testing  
+  - Security considerations  
+  - Performance testing  
+- Refined test cases regenerated via **Agent Builder + Vertex AI**.  
+
+### 5. Dashboard  
+- **KPI Cards**:  
+  - Total Requirements Parsed  
+  - Total Test Cases Generated  
+  - Traceability Coverage %  
+  - Edge Cases Identified  
+- Recent Activity snapshot.  
+
+### 6. Audit Trail  
+- Log every action:  
+  - User uploads  
+  - File metadata  
+  - Timestamped activities  
+- Exportable for compliance & audits.  
+
+---
+
+🚀 With this flow, **Navkriti GenAI Test Case Generator** ensures that healthcare QA teams can move from **requirement upload → AI-driven test generation → compliance-ready traceability matrix** in minutes.  
