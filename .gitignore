@@ -1,45 +1,104 @@
-# Node.js
+# ======================================
+# Node.js dependencies
+# ======================================
 assets/frontend/node_modules/
+node_modules/
 
 # Build output
 assets/frontend/build/
-assets/frontend/public/
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+firebase-debug.log
+*.log
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Misc
+# Environment variables
 .env
 .env.*
 *.local
 
-# VSCode
+# Editor settings
 .vscode/
+.idea/
 
-# Firebase
-firebase-debug.log
-
-# PDF and other output
+# PDF and generated output
 *.pdf
 
-# Ignore by default
-*.log
-
-# Ignore package-lock and yarn lock if not needed
+# Lock files (ignore if you want flexibility across npm/yarn/pnpm)
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 
-# Ignore coverage
+# Coverage and test reports
 coverage/
+*.lcov
 
-# Ignore test output
-*.test.js
+# Ignore test cache but **keep test files**
+jest-cache/
+jest-results.json
 
-# Ignore asset-manifest
+# Asset manifest (generated at build)
 asset-manifest.json
+
+# Firebase / GCP local emulators
+.firebase/
+.firestore/
+.storage/
+.bigquery/
+
+# ======================================
+# Python dependencies
+# ======================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.conda/
+.venv*/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# PyInstaller
+*.spec
+
+# Unit test / coverage reports
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# PyCharm / VSCode Python settings
+.pytest_cache/
+.pyright/
+
+# Local SQLite databases
+*.sqlite3
+*.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
