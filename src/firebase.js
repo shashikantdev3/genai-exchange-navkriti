@@ -4,11 +4,6 @@ import { getAnalytics } from "firebase/analytics";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
-import dotenv from "dotenv";
-dotenv.config();
-
-console.log("Firebase Environment Variables:", process.env);
-
 // Firebase config from .env
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
