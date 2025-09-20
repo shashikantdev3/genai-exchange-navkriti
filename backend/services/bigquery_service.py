@@ -1,14 +1,20 @@
 import os
 from dotenv import load_dotenv
 from google.cloud import bigquery
+from google.api_core.exceptions import NotFound
 from typing import List, Dict, Any
 import json
 
 # Load environment variables
 load_dotenv()
 
-# Initialize BigQuery client
-client = bigquery.Client(project=os.getenv('BIGQUERY_PROJECT_ID'))
+# Initialize BigQuery Client
+# This automatically uses the credentials set up in your environment
+# (e.g., from gcloud auth application-default login)
+project_id = os.getenv('BIGQUERY_PROJECT_ID')
+if not project_id:
+    raise ValueError("BIGQUERY_PROJECT_ID environment variable not set.")
+client = bigquery.Client(project=project_id)
 
 # Define dataset and table names
 DATASET_ID = "healthcare_testcases"
@@ -17,248 +23,176 @@ TESTCASES_TABLE = "testcases"
 TRACEABILITY_TABLE = "traceability_matrix"
 
 async def ensure_tables_exist():
-    """Ensure that all required tables exist in BigQuery"""
+    """
+    Checks if the BigQuery dataset and tables exist, and creates them if they don't.
+    """
+    dataset_id = f"{client.project}.{DATASET_ID}"
+    
+    # --- Create Dataset if it doesn't exist ---
     try:
-        dataset_ref = client.dataset(DATASET_ID)
-        
-        # Try to get dataset or create if not exists
-        try:
-            client.get_dataset(dataset_ref)
-        except Exception:
-            dataset = bigquery.Dataset(dataset_ref)
-            dataset.location = "US"
-            client.create_dataset(dataset)
-        
-        # Create requirements table if not exists
-        requirements_schema = [
-            bigquery.SchemaField("requirement_id", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("description", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("priority", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("compliance_references", "STRING", mode="REPEATED"),
-        ]
-        
-        requirements_table_ref = dataset_ref.table(REQUIREMENTS_TABLE)
-        try:
-            client.get_table(requirements_table_ref)
-        except Exception:
-            requirements_table = bigquery.Table(requirements_table_ref, schema=requirements_schema)
-            client.create_table(requirements_table)
-        
-       # Create testcases table if not exists
-        testcases_schema = [
-            bigquery.SchemaField("test_case_id", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("title", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("requirement_id", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("steps", "STRING", mode="REPEATED"),
-            bigquery.SchemaField("expected_result", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("priority", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("compliance_reference", "STRING", mode="REPEATED"),
-            bigquery.SchemaField("status", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", mode="REQUIRED"),
-            bigquery.SchemaField("category", "STRING", mode="NULLABLE"),  # New field
-            bigquery.SchemaField("description", "STRING", mode="NULLABLE"), # New field
-        ]
+        client.get_dataset(dataset_id)
+        print(f"Dataset {DATASET_ID} already exists.")
+    except NotFound:
+        print(f"Dataset {DATASET_ID} not found, creating it.")
+        dataset = bigquery.Dataset(dataset_id)
+        dataset.location = "US"  # You can change the location
+        client.create_dataset(dataset, timeout=30)
+        print(f"Created dataset {client.project}.{DATASET_ID}")
 
-        testcases_table_ref = dataset_ref.table(TESTCASES_TABLE)
+    # --- Schema Definitions ---
+    testcases_schema = [
+        bigquery.SchemaField("test_case_id", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("title", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("requirement_id", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("steps", "STRING", mode="REPEATED"),
+        bigquery.SchemaField("expected_result", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("priority", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("compliance_reference", "STRING", mode="REPEATED"),
+        bigquery.SchemaField("status", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", mode="NULLABLE"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", mode="NULLABLE"),
+    ]
+    
+    traceability_schema = [
+        bigquery.SchemaField("requirement_id", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("test_case_ids", "STRING", mode="REPEATED"),
+        bigquery.SchemaField("compliance_references", "STRING", mode="REPEATED"),
+        bigquery.SchemaField("last_updated", "TIMESTAMP", mode="REQUIRED"),
+    ]
+
+    # --- Create Tables if they don't exist ---
+    tables = {
+        TESTCASES_TABLE: testcases_schema,
+        TRACEABILITY_TABLE: traceability_schema
+    }
+    
+    for table_name, schema in tables.items():
+        table_id = f"{dataset_id}.{table_name}"
         try:
-            client.get_table(testcases_table_ref)
-        except Exception:
-            testcases_table = bigquery.Table(testcases_table_ref, schema=testcases_schema)
-            client.create_table(testcases_table)
-        
-        # Create traceability table if not exists
-        traceability_schema = [
-            bigquery.SchemaField("requirement_id", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("description", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("test_cases", "STRING", mode="REPEATED"),
-            bigquery.SchemaField("compliance", "STRING", mode="REPEATED"),
-            bigquery.SchemaField("status", "STRING", mode="REQUIRED"),
-        ]
-        
-        traceability_table_ref = dataset_ref.table(TRACEABILITY_TABLE)
-        try:
-            client.get_table(traceability_table_ref)
-        except Exception:
-            traceability_table = bigquery.Table(traceability_table_ref, schema=traceability_schema)
-            client.create_table(traceability_table)
-            
-        return True
-    except Exception as e:
-        print(f"Error ensuring BigQuery tables exist: {str(e)}")
-        return False
+            client.get_table(table_id)
+            print(f"Table {table_name} already exists.")
+        except NotFound:
+            print(f"Table {table_name} not found, creating it.")
+            table = bigquery.Table(table_id, schema=schema)
+            client.create_table(table)
+            print(f"Created table {table_name}.")
 
 async def save_test_cases(test_cases: List[Dict[str, Any]]) -> bool:
     """
-    Save test cases to BigQuery
-    
-    Args:
-        test_cases: List of test cases to save
-        
-    Returns:
-        True if successful, False otherwise
-    """
-    try:
-        # Ensure tables exist
-        await ensure_tables_exist()
-        
-        # Prepare rows for insertion
-        rows_to_insert = []
-        for test_case in test_cases:
-            # Convert to dict if it's a Pydantic model
-            if hasattr(test_case, "dict"):
-                test_case = test_case.dict()
-            
-            # Convert lists to JSON strings if needed
-            if isinstance(test_case.get('steps'), list):
-                test_case['steps'] = [str(step) for step in test_case['steps']]
-            
-            if isinstance(test_case.get('compliance_reference'), list):
-                test_case['compliance_reference'] = [str(ref) for ref in test_case['compliance_reference']]
-            
-            rows_to_insert.append(test_case)
-        
-        # Insert rows
-        table_ref = client.dataset(DATASET_ID).table(TESTCASES_TABLE)
-        errors = client.insert_rows_json(table_ref, rows_to_insert)
-        
-        if errors:
-            print(f"Errors inserting rows into BigQuery: {errors}")
-            return False
-        
-        # Update traceability matrix
-        await update_traceability_matrix(test_cases)
-        
-        return True
-    except Exception as e:
-        print(f"Error saving test cases to BigQuery: {str(e)}")
-        return False
+    Saves a list of generated test cases to the BigQuery testcases table.
 
-async def update_test_cases(test_cases: List[Dict[str, Any]]) -> bool:
-    """
-    Update test cases in BigQuery
-    
     Args:
-        test_cases: List of test cases to update
-        
+        test_cases: A list of test case dictionaries.
+
     Returns:
-        True if successful, False otherwise
+        True if the insert was successful, False otherwise.
     """
-    try:
-        # For simplicity, we'll delete and re-insert the test cases
-        # In a production environment, you might want to use a more efficient approach
-        
-        # Ensure tables exist
-        await ensure_tables_exist()
-        
-        # Delete existing test cases
-        for test_case in test_cases:
-            test_case_id = test_case.get('test_case_id')
-            if test_case_id:
-                query = f"""
-                DELETE FROM `{os.getenv('BIGQUERY_PROJECT_ID')}.{DATASET_ID}.{TESTCASES_TABLE}`
-                WHERE test_case_id = '{test_case_id}'
-                """
-                query_job = client.query(query)
-                query_job.result()
-        
-        # Insert updated test cases
-        await save_test_cases(test_cases)
-        
-        # Update traceability matrix
-        await update_traceability_matrix(test_cases)
-        
+    table_id = f"{client.project}.{DATASET_ID}.{TESTCASES_TABLE}"
+    
+    # Ensure the required tables exist before trying to insert
+    await ensure_tables_exist()
+    
+    errors = client.insert_rows_json(table_id, test_cases)
+    if not errors:
+        print(f"Successfully inserted {len(test_cases)} rows into {TESTCASES_TABLE}.")
         return True
-    except Exception as e:
-        print(f"Error updating test cases in BigQuery: {str(e)}")
+    else:
+        print("Encountered errors while inserting rows: {}".format(errors))
         return False
 
 async def update_traceability_matrix(test_cases: List[Dict[str, Any]]) -> bool:
     """
-    Update traceability matrix in BigQuery based on test cases
+    Updates the traceability matrix using a MERGE statement. It aggregates
+    test case data by requirement_id and then inserts or updates the matrix.
     
     Args:
-        test_cases: List of test cases to update traceability for
-        
+        test_cases: A list of newly generated test cases.
+
     Returns:
-        True if successful, False otherwise
+        True if the MERGE operation was successful, False otherwise.
     """
+    table_id = f"{client.project}.{DATASET_ID}.{TRACEABILITY_TABLE}"
+    
+    # --- Aggregate test case data by requirement ID ---
+    matrix_updates = {}
+    for tc in test_cases:
+        req_id = tc.get("requirement_id")
+        if not req_id:
+            continue
+            
+        if req_id not in matrix_updates:
+            matrix_updates[req_id] = {
+                "test_case_ids": set(),
+                "compliance_references": set()
+            }
+        
+        matrix_updates[req_id]["test_case_ids"].add(tc["test_case_id"])
+        
+        # Add compliance references if they exist
+        if tc.get("compliance_reference"):
+            matrix_updates[req_id]["compliance_references"].update(tc["compliance_reference"])
+
+    if not matrix_updates:
+        print("No requirements to update in the traceability matrix.")
+        return True
+
+    # --- Build and execute the MERGE query ---
+    # We create a temporary table with the new data to merge in
+    temp_table_rows = []
+    for req_id, data in matrix_updates.items():
+        temp_table_rows.append({
+            "requirement_id": req_id,
+            "test_case_ids": list(data["test_case_ids"]),
+            "compliance_references": list(data["compliance_references"]),
+        })
+
+    # The MERGE statement is the most reliable way to perform an "upsert" in BigQuery
+    merge_query = f"""
+    MERGE `{table_id}` T
+    USING UNNEST(@updates) S
+    ON T.requirement_id = S.requirement_id
+    WHEN MATCHED THEN
+      UPDATE SET 
+        T.test_case_ids = S.test_case_ids,
+        T.compliance_references = S.compliance_references,
+        T.last_updated = CURRENT_TIMESTAMP()
+    WHEN NOT MATCHED THEN
+      INSERT (requirement_id, test_case_ids, compliance_references, last_updated) 
+      VALUES (S.requirement_id, S.test_case_ids, S.compliance_references, CURRENT_TIMESTAMP())
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ArrayQueryParameter("updates", "STRUCT<requirement_id STRING, test_case_ids ARRAY<STRING>, compliance_references ARRAY<STRING>>", temp_table_rows),
+        ]
+    )
+
     try:
-        # Group test cases by requirement_id
-        requirements_map = {}
-        for test_case in test_cases:
-            req_id = test_case.get('requirement_id')
-            if req_id:
-                if req_id not in requirements_map:
-                    requirements_map[req_id] = {
-                        'requirement_id': req_id,
-                        'description': '',  # Will be populated from requirements table if available
-                        'test_cases': [],
-                        'compliance': [],
-                        'status': 'Not Tested'
-                    }
-                
-                # Add test case ID to the requirement's test cases
-                requirements_map[req_id]['test_cases'].append(test_case.get('test_case_id'))
-                
-                # Add compliance references
-                compliance_refs = test_case.get('compliance_reference', [])
-                if isinstance(compliance_refs, list):
-                    for ref in compliance_refs:
-                        if ref not in requirements_map[req_id]['compliance']:
-                            requirements_map[req_id]['compliance'].append(ref)
-                
-                # Update status if any test case is tested
-                if test_case.get('status') != 'Not Tested':
-                    requirements_map[req_id]['status'] = 'Partially Tested'
-        
-        # Update traceability matrix
-        for req_id, traceability_item in requirements_map.items():
-            # Delete existing entry
-            query = f"""
-            DELETE FROM `{os.getenv('BIGQUERY_PROJECT_ID')}.{DATASET_ID}.{TRACEABILITY_TABLE}`
-            WHERE requirement_id = '{req_id}'
-            """
-            query_job = client.query(query)
-            query_job.result()
-            
-            # Insert updated entry
-            table_ref = client.dataset(DATASET_ID).table(TRACEABILITY_TABLE)
-            errors = client.insert_rows_json(table_ref, [traceability_item])
-            
-            if errors:
-                print(f"Errors inserting traceability item into BigQuery: {errors}")
-        
+        query_job = client.query(merge_query, job_config=job_config)
+        query_job.result()  # Wait for the job to complete
+        print(f"Successfully merged {len(temp_table_rows)} records into {TRACEABILITY_TABLE}.")
         return True
     except Exception as e:
-        print(f"Error updating traceability matrix in BigQuery: {str(e)}")
+        print(f"Error updating traceability matrix: {e}")
         return False
 
 async def get_traceability_matrix() -> List[Dict[str, Any]]:
     """
-    Get traceability matrix from BigQuery
-    
+    Queries and retrieves the full traceability matrix from BigQuery.
+
     Returns:
-        List of traceability matrix items
+        A list of dictionaries, where each dictionary represents a row
+        in the traceability matrix. Returns an empty list on error.
     """
+    table_id = f"{client.project}.{DATASET_ID}.{TRACEABILITY_TABLE}"
+    query = f"SELECT * FROM `{table_id}` ORDER BY requirement_id"
+    
     try:
-        # Ensure tables exist
-        await ensure_tables_exist()
-        
-        # Query traceability matrix
-        query = f"""
-        SELECT * FROM `{os.getenv('BIGQUERY_PROJECT_ID')}.{DATASET_ID}.{TRACEABILITY_TABLE}`
-        """
         query_job = client.query(query)
-        results = query_job.result()
+        rows = query_job.result()
         
-        # Convert to list of dicts
-        traceability_matrix = []
-        for row in results:
-            traceability_matrix.append(dict(row.items()))
-        
-        return traceability_matrix
+        records = [dict(row) for row in rows]
+        return records
     except Exception as e:
-        print(f"Error getting traceability matrix from BigQuery: {str(e)}")
-        # Return empty list for resilience
+        print(f"Error querying BigQuery for traceability matrix: {e}")
         return []
