@@ -44,7 +44,7 @@ async def ensure_tables_exist():
             requirements_table = bigquery.Table(requirements_table_ref, schema=requirements_schema)
             client.create_table(requirements_table)
         
-        # Create testcases table if not exists
+       # Create testcases table if not exists
         testcases_schema = [
             bigquery.SchemaField("test_case_id", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("title", "STRING", mode="REQUIRED"),
@@ -56,8 +56,10 @@ async def ensure_tables_exist():
             bigquery.SchemaField("status", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
             bigquery.SchemaField("updated_at", "TIMESTAMP", mode="REQUIRED"),
+            bigquery.SchemaField("category", "STRING", mode="NULLABLE"),  # New field
+            bigquery.SchemaField("description", "STRING", mode="NULLABLE"), # New field
         ]
-        
+
         testcases_table_ref = dataset_ref.table(TESTCASES_TABLE)
         try:
             client.get_table(testcases_table_ref)

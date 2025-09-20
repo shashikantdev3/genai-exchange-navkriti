@@ -15,3 +15,5 @@ openpyxl==3.1.2
 fpdf==1.7.2
 reportlab==4.0.7
 requests==2.31.0
+PyMuPDF==1.22.5
+pypdf

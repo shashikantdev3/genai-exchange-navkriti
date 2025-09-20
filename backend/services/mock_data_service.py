@@ -8,39 +8,93 @@ import random
 import uuid
 from datetime import datetime, timedelta
 
-# Mock requirements data
+# New Mock requirements data from the SRS
 MOCK_REQUIREMENTS = [
     {
-        "requirement_id": "RQ-001",
-        "description": "System must log all user activity for audit purposes",
-        "priority": "high",
-        "compliance": ["FDA 21 CFR Part 11", "ISO 13485"]
+        "requirement_id": "REQ-001",
+        "description": "System must allow new patients to register with name, date of birth, gender, email, phone, and address.",
+        "priority": "High",
+        "compliance": ["HIPAA"]
     },
     {
-        "requirement_id": "RQ-002",
-        "description": "System must validate user input to prevent SQL injection",
-        "priority": "high",
-        "compliance": ["HIPAA", "ISO 27001"]
+        "requirement_id": "REQ-002",
+        "description": "System must support secure login for patients and staff with MFA for doctors and administrators.",
+        "priority": "High",
+        "compliance": ["HIPAA", "TLS 1.2+"]
     },
     {
-        "requirement_id": "RQ-003",
-        "description": "System must encrypt all PHI data at rest and in transit",
-        "priority": "high",
-        "compliance": ["HIPAA", "GDPR", "ISO 27001"]
+        "requirement_id": "REQ-003",
+        "description": "Patients shall be able to book, cancel, and reschedule appointments online.",
+        "priority": "Medium",
+        "compliance": []
     },
     {
-        "requirement_id": "RQ-004",
-        "description": "System must provide role-based access control",
-        "priority": "medium",
-        "compliance": ["HIPAA", "ISO 27001"]
+        "requirement_id": "REQ-004",
+        "description": "Doctors can upload notes and lab results to EMR, and patients can view but not edit their EMR.",
+        "priority": "High",
+        "compliance": ["HIPAA", "AES-256"]
     },
     {
-        "requirement_id": "RQ-005",
-        "description": "System must maintain an audit trail of all data modifications",
-        "priority": "medium",
-        "compliance": ["FDA 21 CFR Part 11", "HIPAA"]
+        "requirement_id": "REQ-005",
+        "description": "System shall auto-generate invoices and support multiple payment methods.",
+        "priority": "Medium",
+        "compliance": []
+    },
+    {
+        "requirement_id": "REQ-006",
+        "description": "Patients shall receive SMS/email reminders 24 hours before appointments.",
+        "priority": "Medium",
+        "compliance": []
+    },
+    {
+        "requirement_id": "REQ-007",
+        "description": "System shall log all access to patient records with timestamp, user ID, and action.",
+        "priority": "High",
+        "compliance": ["HIPAA"]
+    },
+    {
+        "requirement_id": "REQ-008",
+        "description": "System shall support 500 concurrent users with <2s response time.",
+        "priority": "High",
+        "compliance": []
     }
 ]
+
+# --- (The rest of the code in this file remains the same) ---
+# The functions `generate_mock_test_cases`, `generate_mock_traceability_matrix`, and
+# `generate_mock_audit_trail` will now use the new `MOCK_REQUIREMENTS` list.
+
+def get_random_from_list(items: List[str]) -> str:
+    """Get a random item from a list"""
+    return random.choice(items)
+
+def fill_template(template: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill a template with random data"""
+    result = template.copy()
+    
+    # Replace template variables in title
+    if "{" in result["title"]:
+        for key, values in TEMPLATE_DATA.items():
+            if "{" + key + "}" in result["title"]:
+                result["title"] = result["title"].replace("{" + key + "}", get_random_from_list(values))
+    
+    # Replace template variables in steps
+    new_steps = []
+    for step in result["steps"]:
+        new_step = step
+        for key, values in TEMPLATE_DATA.items():
+            if "{" + key + "}" in new_step:
+                new_step = new_step.replace("{" + key + "}", get_random_from_list(values))
+        new_steps.append(new_step)
+    result["steps"] = new_steps
+    
+    # Replace template variables in expected result
+    if "{" in result["expected_result"]:
+        for key, values in TEMPLATE_DATA.items():
+            if "{" + key + "}" in result["expected_result"]:
+                result["expected_result"] = result["expected_result"].replace("{" + key + "}", get_random_from_list(values))
+    
+    return result
 
 # Mock test case templates
 TEST_CASE_TEMPLATES = [
@@ -87,38 +141,6 @@ TEMPLATE_DATA = {
     "field": ["name", "ID", "date", "amount", "description", "code"],
     "access_result": ["granted", "denied"]
 }
-
-def get_random_from_list(items: List[str]) -> str:
-    """Get a random item from a list"""
-    return random.choice(items)
-
-def fill_template(template: Dict[str, Any]) -> Dict[str, Any]:
-    """Fill a template with random data"""
-    result = template.copy()
-    
-    # Replace template variables in title
-    if "{" in result["title"]:
-        for key, values in TEMPLATE_DATA.items():
-            if "{" + key + "}" in result["title"]:
-                result["title"] = result["title"].replace("{" + key + "}", get_random_from_list(values))
-    
-    # Replace template variables in steps
-    new_steps = []
-    for step in result["steps"]:
-        new_step = step
-        for key, values in TEMPLATE_DATA.items():
-            if "{" + key + "}" in new_step:
-                new_step = new_step.replace("{" + key + "}", get_random_from_list(values))
-        new_steps.append(new_step)
-    result["steps"] = new_steps
-    
-    # Replace template variables in expected result
-    if "{" in result["expected_result"]:
-        for key, values in TEMPLATE_DATA.items():
-            if "{" + key + "}" in result["expected_result"]:
-                result["expected_result"] = result["expected_result"].replace("{" + key + "}", get_random_from_list(values))
-    
-    return result
 
 def generate_mock_test_cases(count: int = 10) -> List[Dict[str, Any]]:
     """

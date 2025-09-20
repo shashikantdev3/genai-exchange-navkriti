@@ -30,10 +30,15 @@ class TestCase(BaseModel):
 class TestCaseGenerationRequest(BaseModel):
     requirements: List[Requirement]
 
+# New model for the /generate endpoint's request payload
+class GenerateRequest(BaseModel):
+    gcs_path: str
+
 class TestCaseGenerationResponse(BaseModel):
     success: bool
     message: str
     test_cases: List[TestCase]
+    generation_id: str
 
 class TestCaseRegenerationRequest(BaseModel):
     requirements: List[Requirement]

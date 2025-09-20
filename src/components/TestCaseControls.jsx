@@ -37,16 +37,15 @@ const TestCaseControls = ({ onGenerate, onRegenerate }) => {
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
+  const [gcsFilePath, setGcsFilePath] = useState(''); // New state variable to store GCS path
+
   // Check authentication state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User is signed in
         console.log('User is authenticated:', user.uid);
         setIsAuthenticated(true);
       } else {
-        // User is signed out
         console.log('User is not authenticated');
         setIsAuthenticated(false);
       }
@@ -64,8 +63,8 @@ const TestCaseControls = ({ onGenerate, onRegenerate }) => {
     'application/json' // For API specs
   ];
 
-  // Handle file selection
-  const handleFileChange = (e) => {
+  // Handle file selection and upload
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
@@ -74,117 +73,75 @@ const TestCaseControls = ({ onGenerate, onRegenerate }) => {
       return;
     }
     
-    console.log('File selected:', file.name, file.type, file.size);
-    console.log('Firebase storage object:', storage);
-    console.log('Authentication status:', isAuthenticated, 'Current user:', auth.currentUser?.uid);
-    
     setSelectedFile(file);
     setFileUploaded(false);
+    setGcsFilePath('');
     setError('');
     setGenerating(true);
     setUploadProgress(0);
-    
-    // Check if user is authenticated before uploading
-    if (!isAuthenticated) {
-      console.log('Waiting for authentication before uploading...');
-      setSnackbarMessage('Authenticating before upload...');
-      setSnackbarOpen(true);
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
       
-      // Wait for authentication to complete (max 5 seconds)
-      let authCheckCount = 0;
-      const authCheckInterval = setInterval(() => {
-        authCheckCount++;
-        if (auth.currentUser) {
-          clearInterval(authCheckInterval);
-          console.log('Authentication completed, proceeding with upload');
-          uploadFile(file);
-        } else if (authCheckCount >= 10) { // 5 seconds (10 * 500ms)
-          clearInterval(authCheckInterval);
-          setError('Authentication failed. Please try again.');
-          setGenerating(false);
+        // Call the backend /upload endpoint
+        const response = await fetch('http://127.0.0.1:8000/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Upload failed with status: ${response.status}`);
         }
-      }, 500);
-    } else {
-      uploadFile(file);
+
+        const data = await response.json();
+        console.log('Backend upload response:', data);
+
+        // Store the GCS path from the backend response
+        setGcsFilePath(data.file_metadata.storage_path);
+        setFileUploaded(true);
+        setGenerating(false);
+        setSnackbarMessage(`File "${file.name}" uploaded successfully!`);
+        setSnackbarOpen(true);
+
+    } catch (err) {
+        setError(`Upload failed: ${err.message}`);
+        setGenerating(false);
     }
   };
   
-  // Function to handle file upload
-  const uploadFile = (file) => {
-    try {
-      // Create a storage reference
-      const storageRef = ref(storage, `requirements/${file.name}`);
-      console.log('Storage reference created:', storageRef);
-      
-      // Upload file to Firebase Storage
-      const uploadTask = uploadBytesResumable(storageRef, file);
-      console.log('Upload task created');
-      
-      // Monitor upload progress
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          // Track and update upload progress
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`Upload progress: ${progress}%, transferred: ${snapshot.bytesTransferred}, total: ${snapshot.totalBytes}`);
-          setUploadProgress(progress);
-        },
-        (error) => {
-          // Handle errors
-          console.error('Upload error code:', error.code);
-          console.error('Upload error message:', error.message);
-          console.error('Full error object:', JSON.stringify(error));
-          setError(`Upload failed: ${error.message}`);
-          setGenerating(false);
-        },
-        () => {
-          // Upload completed successfully
-          console.log('Upload completed successfully');
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            console.log('File available at', downloadURL);
-            setFileUploaded(true);
-            setGenerating(false);
-            
-            // Show success message
-            setSnackbarMessage(`File "${file.name}" uploaded successfully to Firebase`);
-            setSnackbarOpen(true);
-          }).catch(err => {
-            console.error('Error getting download URL:', err);
-            setError(`Error getting download URL: ${err.message}`);
-            setGenerating(false);
-          });
-        }
-      );
-    } catch (err) {
-      console.error('Error setting up upload:', err);
-      setError(`Error setting up upload: ${err.message}`);
-      setGenerating(false);
-    }
-  };
+  // Handle generate button click with real API call
+  const handleGenerate = async () => {
+    if (!gcsFilePath) return; // Ensure a path exists
 
-  // Handle generate button click
-  const handleGenerate = () => {
-    if (!fileUploaded) return;
-    
     setGenerating(true);
-    
-    // Simulate API call with timeout
-    setTimeout(() => {
-      setGenerating(false);
-      
-      // Call parent handler
-      if (onGenerate) {
-        onGenerate({
-          fileName: selectedFile.name,
-          fileType: selectedFile.type,
-          fileSize: selectedFile.size
+    setError('');
+
+    try {
+        // Send the GCS file path to the backend
+        const response = await fetch('http://127.0.0.1:8000/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ gcs_path: gcsFilePath }),
         });
-      }
-      
-      // Show success message
-      setSnackbarMessage('Test cases generated successfully');
-      setSnackbarOpen(true);
-    }, 2000);
+
+        if (!response.ok) {
+            throw new Error(`Generation failed with status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        setGenerating(false);
+        onGenerate(data.test_cases); // Pass the generated test cases to the parent component
+        setSnackbarMessage('Test cases generated successfully');
+        setSnackbarOpen(true);
+
+    } catch (err) {
+        setGenerating(false);
+        setError(`Generation failed: ${err.message}`);
+    }
   };
 
   // Open regenerate dialog
