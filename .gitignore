@@ -20,6 +20,7 @@ Thumbs.db
 
 # Environment variables
 .env
+/backend/.env
 .env.*
 *.local
 
@@ -51,6 +52,10 @@ asset-manifest.json
 .firestore/
 .storage/
 .bigquery/
+
+#Firebase Service Account JSON
+backend/keys/
+*serviceAccountKey.json
 
 # ======================================
 # Python dependencies

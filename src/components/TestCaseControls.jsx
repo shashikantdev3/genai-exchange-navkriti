@@ -312,7 +312,7 @@ const TestCaseControls = ({ onGenerate, onRegenerate }) => {
           <LinearProgress variant={selectedFile && !fileUploaded ? "determinate" : "indeterminate"} value={uploadProgress} />
           <Typography variant="body2" sx={{ mt: 1 }}>
             {!fileUploaded && selectedFile ? `Uploading file: ${Math.round(uploadProgress)}%` : 
-             fileUploaded ? 'Regenerating test cases...' : 'Generating test cases...'}
+             fileUploaded ? 'Generating test cases...' : 'Regenerating test cases...' }
           </Typography>
         </Box>
       )}
