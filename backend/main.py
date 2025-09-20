@@ -23,11 +23,11 @@ from services.firestore_service import (
     get_audit_trail,
 )
 from services.bigquery_service import (
-    save_test_cases_to_bigquery,
+    save_test_cases,
     update_traceability_matrix,
     get_traceability_matrix,
 )
-from services.vertex_ai_service import generate_test_cases as vertex_generate_test_cases
+from services.vertex_ai_service import VertexAIService
 from services.agent_builder_service import refine_prompt
 from services.export_service import export_data
 from services.mock_data_service import (
@@ -35,6 +35,9 @@ from services.mock_data_service import (
     generate_mock_traceability_matrix,
     generate_mock_audit_trail,
 )
+
+# Initialize services
+vertex_ai_service = VertexAIService()
 
 # Initialize Firebase Admin SDK using service account
 import firebase_admin
@@ -118,9 +121,8 @@ async def generate_test_cases_endpoint(request: models.TestCaseGenerationRequest
     """Generate test cases from requirements"""
     try:
         try:
-            test_cases = await vertex_generate_test_cases(request.requirements)
+            test_cases = await vertex_ai_service.generate_test_cases(request.requirements)
             await save_test_cases(test_cases)
-            await save_test_cases_to_bigquery(test_cases)
             await update_traceability_matrix(test_cases)
 
             await log_audit_event(
@@ -152,9 +154,9 @@ async def regenerate_test_cases_endpoint(request: models.TestCaseRegenerationReq
                 clarifications=request.clarifications,
             )
 
-            test_cases = await vertex_generate_test_cases(request.original_requirements, refined_prompt=refined_prompt)
+            test_cases = await vertex_ai_service.regenerate_test_cases(request.original_test_cases, clarifications=request.clarifications)
             await save_test_cases(test_cases, update=True)
-            await save_test_cases_to_bigquery(test_cases, update=True)
+            await save_test_cases(test_cases)
             await update_traceability_matrix(test_cases)
 
             await log_audit_event(
@@ -181,7 +183,7 @@ async def regenerate_test_cases_endpoint(request: models.TestCaseRegenerationReq
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/traceability", response_model=List[models.TraceabilityMatrixResponse])
+@app.get("/traceability", response_model=List[models.TraceabilityMatrixItem])
 async def get_traceability_matrix_endpoint():
     """Get traceability matrix"""
     try:
@@ -196,7 +198,7 @@ async def get_traceability_matrix_endpoint():
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/audit", response_model=List[models.AuditTrailResponse])
+@app.get("/audit", response_model=List[models.AuditTrailItem])
 async def get_audit_trail_endpoint():
     """Get audit trail"""
     try:
