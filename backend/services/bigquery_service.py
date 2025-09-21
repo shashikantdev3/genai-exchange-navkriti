@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from google.cloud import bigquery
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, Forbidden
 from typing import List, Dict, Any
 
 load_dotenv()
@@ -25,6 +25,7 @@ async def ensure_tables_exist():
         dataset = bigquery.Dataset(dataset_id)
         dataset.location = "US"
         client.create_dataset(dataset, timeout=30)
+        print(f"Successfully created dataset {dataset_id}")
 
     testcases_schema = [
         bigquery.SchemaField("test_case_id", "STRING", mode="REQUIRED"),
@@ -84,8 +85,10 @@ async def update_traceability_matrix(test_cases: List[Dict[str, Any]]) -> bool:
         if tc.get("test_case_id"):
             matrix_updates[req_id]["test_case_ids"].add(tc.get("test_case_id"))
         
-        if tc.get("compliance_reference"):
-            matrix_updates[req_id]["compliance_references"].update(tc.get("compliance_reference", []))
+        # This robust check handles inconsistencies in the AI's output
+        compliance_refs = tc.get("compliance_reference")
+        if compliance_refs and isinstance(compliance_refs, list):
+            matrix_updates[req_id]["compliance_references"].update(compliance_refs)
 
     if not matrix_updates:
         print("No requirements to update in the traceability matrix.")

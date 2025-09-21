@@ -17,9 +17,6 @@ from firebase_admin import credentials
 # Load environment variables from .env file FIRST
 load_dotenv()
 
-# ADD THIS LINE FOR FINAL VERIFICATION
-print(f"VERIFY: GOOGLE_APPLICATION_CREDENTIALS is set to: {os.getenv('GOOGLE_APPLICATION_CREDENTIALS')}")
-
 # --- Centralized Firebase Admin Initialization using ADC ---
 # This block runs once and uses Application Default Credentials.
 # It relies on the GOOGLE_APPLICATION_CREDENTIALS environment variable.
@@ -31,6 +28,7 @@ if not firebase_admin._apps:
 
         cred = credentials.ApplicationDefault()
         
+        # Explicitly initialize the app with the Project ID to ensure consistency
         firebase_admin.initialize_app(cred, {
             "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
             "projectId": project_id,
