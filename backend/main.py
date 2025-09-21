@@ -17,19 +17,27 @@ from firebase_admin import credentials
 # Load environment variables from .env file FIRST
 load_dotenv()
 
+# ADD THIS LINE FOR FINAL VERIFICATION
+print(f"VERIFY: GOOGLE_APPLICATION_CREDENTIALS is set to: {os.getenv('GOOGLE_APPLICATION_CREDENTIALS')}")
+
 # --- Centralized Firebase Admin Initialization using ADC ---
 # This block runs once and uses Application Default Credentials.
 # It relies on the GOOGLE_APPLICATION_CREDENTIALS environment variable.
 if not firebase_admin._apps:
     try:
+        project_id = os.getenv("FIREBASE_PROJECT_ID")
+        if not project_id:
+            raise ValueError("FIREBASE_PROJECT_ID not found in .env file.")
+
         cred = credentials.ApplicationDefault()
+        
         firebase_admin.initialize_app(cred, {
-            "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET")
+            "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+            "projectId": project_id,
         })
-        print("Firebase Admin SDK initialized successfully using Application Default Credentials.")
+        print(f"Firebase Admin SDK initialized successfully for project: {project_id}")
     except Exception as e:
         print(f"Failed to initialize Firebase Admin SDK: {e}")
-        print("Please ensure the GOOGLE_APPLICATION_CREDENTIALS environment variable is set correctly in your .env file.")
 # --- End of Initialization ---
 
 
